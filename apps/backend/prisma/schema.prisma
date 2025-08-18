@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Trend {
+  id         String  @id @default(cuid())
+  term       String
+  volume     String?
+  position   Int?
+  relevance  Float? // Score de relevância da IA
+  isRelevant Boolean @default(false)
+
+  // Novos campos para cenários estratégicos
+  title        String? // Título do cenário
+  description  String? // Descrição do cenário
+  category     String? // Categoria (Tecnologia, Economia, etc.)
+  sourceOrigin String? // Termo de origem
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento com notícias
+  news News[]
+
+  @@map("trends")
+}
+
+model News {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  link        String?
+  publishedAt DateTime?
+  source      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relacionamento com trend
+  trendId String
+  trend   Trend  @relation(fields: [trendId], references: [id], onDelete: Cascade)
+
+  // Para tracking de envios
+  sentToSlack Boolean @default(false)
+
+  @@map("news")
+}
+
+model DailyReport {
+  id           String   @id @default(cuid())
+  date         DateTime
+  totalTrends  Int
+  selectedNews Int
+  createdAt    DateTime @default(now())
+
+  @@unique([date])
+  @@map("daily_reports")
+}
+
+model WeeklyPodcast {
+  id        String   @id @default(cuid())
+  weekStart DateTime
+  weekEnd   DateTime
+  content   String // Conteúdo do podcast gerado
+  audioUrl  String? // URL do áudio gerado (se implementado)
+  createdAt DateTime @default(now())
+
+  @@map("weekly_podcasts")
+}
