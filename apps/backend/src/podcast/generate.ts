@@ -136,7 +136,14 @@ async function generatePodcastScript(
   };
 
   const prompt = `
-Crie um roteiro completo de podcast SOBRE OS PRINCIPAIS CENÁRIOS E TENDÊNCIAS ESTRATÉGICAS (baseado nos dados abaixo). NÃO inclua datas, NÃO escreva tempos de duração, NÃO use nome de apresentador, NÃO peça para assinar ou seguir. Apenas entregue o conteúdo direto, profissional e consultivo.
+Crie um roteiro completo de podcast EM PORTUGUÊS SOBRE OS PRINCIPAIS CENÁRIOS E TENDÊNCIAS ESTRATÉGICAS (baseado nos dados abaixo).
+
+IMPORTANTE: O texto será convertido em áudio, então:
+- NÃO use markdown (sem ##, ###, **, *, etc.)
+- NÃO inclua datas, tempos de duração, nomes de apresentadores
+- NÃO use símbolos como #, *, [, ], ou outros caracteres especiais
+- Escreva texto corrido, fluido, como se fosse uma narração natural
+- Use apenas texto simples em português brasileiro
 
 DADOS DA SEMANA (contexto para você, não repita como bloco literal):
 ${formatScenariosForPrompt(topScenarios)}
@@ -150,25 +157,32 @@ ${Object.entries(scenariosByCategory)
 
 INSTRUÇÕES:
 - Tom: profissional, claro, direto, com autoridade estratégica.
-- Estrutura obrigatória em Markdown usando EXATAMENTE estes cabeçalhos, sem tempos entre parênteses:
-  ## [ABERTURA]
-  ## [CENÁRIOS PRINCIPAIS]
-  (Dentro desta seção gerar de 5 a 7 blocos numerados como ### [CENÁRIO X] TÍTULO)
-  ## [ANÁLISE ESTRATÉGICA]
-  ## [FECHAMENTO]
-- Em [ABERTURA]: contextualize brevemente o propósito do episódio sem citar datas ou "bem-vindo" pessoalizado.
-- Em cada [CENÁRIO X]:
-  * Contextualização objetiva
-  * Impactos estratégicos
-  * Oportunidades / riscos / ações práticas
-  * Transição sutil para o próximo (exceto no último)
-- Em [ANÁLISE ESTRATÉGICA]: conecte padrões, convergências e implicações.
-- Em [FECHAMENTO]: síntese final + chamada à reflexão (SEM pedir para seguir, assinar, curtir, ou chamar o ouvinte para próximos episódios, e sem despedidas do tipo "até a próxima semana").
-- NÃO incluir tempos de duração, nomes, datas, faixas de data, placeholders como [Seu Nome].
-- NÃO incluir seções extras.
-- NÃO gerar JSON, apenas Markdown final.
+- Estrutura do roteiro (SEM usar markdown):
 
-Retorne APENAS o roteiro Markdown final conforme instruções.`;
+ABERTURA:
+Contextualize brevemente o propósito do episódio. Fale sobre inteligência estratégica e análise de tendências.
+
+CENÁRIOS PRINCIPAIS:
+Apresente 5 a 7 cenários mais relevantes da semana. Para cada cenário:
+- Contextualização objetiva
+- Impactos estratégicos
+- Oportunidades, riscos e ações práticas
+- Transição sutil para o próximo cenário
+
+ANÁLISE ESTRATÉGICA:
+Conecte padrões, convergências e implicações entre os cenários apresentados.
+
+FECHAMENTO:
+Síntese final com chamada à reflexão estratégica.
+
+REGRAS IMPORTANTES:
+- NÃO incluir tempos de duração, nomes, datas, faixas de data
+- NÃO incluir seções extras ou markdown
+- NÃO pedir para seguir, assinar, curtir
+- NÃO usar despedidas como "até a próxima semana"
+- Escreva como se fosse um texto corrido para ser lido em voz alta
+
+Retorne APENAS o roteiro em texto simples, fluido e natural para narração em português.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -199,41 +213,43 @@ function generateFallbackPodcast(
   weekEnd: string
 ): string {
   return `
-# Podcast TD Trends - Semana de ${weekStart} a ${weekEnd}
+Podcast TD Trends
 
-## [ABERTURA] (1 minuto)
+ABERTURA
 
-Olá e bem-vindos ao TD Trends, seu podcast semanal de análise estratégica de tendências e cenários de negócios. Eu sou seu host e hoje vamos analisar os principais movimentos da semana que passou.
+Olá, bem-vindos ao TD Trends, seu podcast de análise estratégica de tendências e cenários de negócios. Hoje vamos analisar os principais movimentos identificados na nossa análise semanal.
 
 Esta semana identificamos ${
     scenarios.length
   } cenários estratégicos relevantes para o mundo dos negócios e tecnologia. Vamos mergulhar nos insights mais importantes e entender como eles podem impactar suas decisões estratégicas.
 
-## [CENÁRIOS PRINCIPAIS] (10 minutos)
+CENÁRIOS PRINCIPAIS
 
 ${scenarios
   .slice(0, 5)
   .map(
     (scenario, index) => `
-### [CENÁRIO ${index + 1}] - ${scenario.title || scenario.term}
+CENÁRIO ${index + 1} - ${scenario.title || scenario.term}
 
 ${scenario.description || "Análise em desenvolvimento"}
 
-**Implicações estratégicas**: Este cenário apresenta oportunidades de ${
+Implicações estratégicas: Este cenário apresenta oportunidades de ${
       scenario.category || "desenvolvimento"
-    } que devem ser monitoradas pelos gestores.
+    } que devem ser monitoradas pelos gestores. As organizações que conseguirem antecipar essas movimentações terão vantagens competitivas importantes.
 `
   )
   .join("\n")}
 
-## [ANÁLISE ESTRATÉGICA] (3 minutos)
+ANÁLISE ESTRATÉGICA
 
 Conectando todos esses cenários, observamos um padrão interessante de transformação digital e adaptação estratégica. As organizações que conseguirem antecipar essas tendências terão vantagens competitivas significativas.
 
-## [FECHAMENTO] (1 minuto)
+O momento atual exige uma abordagem proativa na identificação e interpretação de sinais de mudança. Os cenários apresentados hoje oferecem um mapa estratégico para decisões mais informadas.
 
-Esses foram os principais insights da semana. Continue acompanhando o TD Trends para não perder nenhuma tendência estratégica importante.
+FECHAMENTO
 
-Até a próxima semana!
+Esses foram os principais insights da nossa análise semanal. A capacidade de interpretar e agir com base nesses cenários pode ser o diferencial estratégico que sua organização precisa.
+
+Continue desenvolvendo sua inteligência estratégica e mantendo-se atento aos movimentos do mercado.
 `;
 }

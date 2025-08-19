@@ -106,12 +106,12 @@ export class AudioService {
           "⚠️ Quota excedida - tentando fallback com modelo mais leve e texto reduzido"
         );
         try {
-          const fallbackText = this.extractPodcastText(text).slice(0, 2500);
+          const fallbackText = this.extractPodcastText(text);
           const response = await this.client.textToSpeech.convert(
-            process.env.ELEVENLABS_VOICE_ID || "pNInz6obpgDQGcFmaJgB",
+            process.env.ELEVENLABS_VOICE_ID!,
             {
               text: fallbackText,
-              modelId: "eleven_turbo_v2", // modelo potencialmente mais barato
+              modelId: "eleven_turbo_v2",
               voiceSettings: {
                 stability: 0.6,
                 similarityBoost: 0.6,
@@ -151,64 +151,49 @@ export class AudioService {
         // Novo formato possível: podcast_title, episode_date_range, sections[]
         if (parsed.podcast_title || parsed.sections) {
           const parts: string[] = [];
-          if (parsed.podcast_title) parts.push(`# ${parsed.podcast_title}`);
-          if (parsed.episode_date_range)
-            parts.push(`Período: ${parsed.episode_date_range}`);
+          if (parsed.podcast_title) parts.push(parsed.podcast_title);
           if (Array.isArray(parsed.sections)) {
-            parsed.sections.forEach((sec: any, idx: number) => {
+            parsed.sections.forEach((sec: any) => {
               if (!sec) return;
-              const title = sec.title || sec.name || `Seção ${idx + 1}`;
-              const time =
-                sec.time_estimate || sec.time_approx || sec.tempo || "";
+              const title = sec.title || sec.name || "";
               const body = sec.script || sec.content || sec.text || "";
-              parts.push(`\n[${title}]${time ? ` (${time})` : ""}`);
+              if (title) parts.push(title);
               if (body) parts.push(body.trim());
               if (!body && Array.isArray(sec.points)) {
-                parts.push(sec.points.map((p: any) => `• ${p}`).join("\n"));
+                parts.push(sec.points.map((p: any) => `${p}`).join(" "));
               }
             });
           }
-          return parts.join("\n").trim();
+          return this.cleanMarkdownForAudio(parts.join(" ").trim());
         }
         const script = parsed.podcast_script;
-        if (typeof script === "string") return script;
+        if (typeof script === "string")
+          return this.cleanMarkdownForAudio(script);
         if (Array.isArray(script)) {
           const parts: string[] = [];
-          script.forEach((sec: any, idx: number) => {
+          script.forEach((sec: any) => {
             if (!sec) return;
-            const title = sec.section || sec.title || `Seção ${idx + 1}`;
-            const time =
-              sec.time_approx || sec.time_estimate || sec.tempo || "";
+            const title = sec.section || sec.title || "";
             const body = sec.content || sec.script || sec.text || "";
-            parts.push(`\n[${title}]${time ? ` (${time})` : ""}`);
+            if (title) parts.push(title);
             if (body) parts.push(body.trim());
             else if (Array.isArray(sec.points)) {
-              parts.push(sec.points.map((p: any) => `• ${p}`).join("\n"));
+              parts.push(sec.points.map((p: any) => `${p}`).join(" "));
             }
           });
-          const combined = parts.join("\n").trim();
-          if (combined.length > 0) return combined;
+          return this.cleanMarkdownForAudio(parts.join(" ").trim());
         }
         if (script && typeof script === "object") {
           try {
             const parts: string[] = [];
-            if (script.title) parts.push(`# ${script.title}`);
-            if (script.episode_date || script.estimated_duration) {
-              parts.push(
-                `Data: ${script.episode_date || ""}$${
-                  script.estimated_duration
-                    ? " | Duração: " + script.estimated_duration
-                    : ""
-                }`.replace("$|", "|")
-              );
-            }
+            if (script.title) parts.push(script.title);
             const sections = script.sections || script.capitulos || [];
             if (Array.isArray(sections)) {
-              sections.forEach((sec: any, idx: number) => {
+              sections.forEach((sec: any) => {
                 if (!sec) return;
-                const name = sec.name || sec.titulo || `Seção ${idx + 1}`;
-                const time = sec.time_approx || sec.tempo || "";
-                parts.push(`\n[${name}]${time ? ` (${time})` : ""}`);
+                const name = sec.name || sec.titulo || "";
+                if (name) parts.push(name);
+
                 // Tentar extrair conteúdo textual
                 const possibleTextFields = [
                   "content",
@@ -227,38 +212,67 @@ export class AudioService {
                 }
                 // Se houver bullets / points
                 if (!body && Array.isArray(sec.points)) {
-                  body = sec.points.map((p: any) => `• ${p}`).join("\n");
+                  body = sec.points.map((p: any) => `${p}`).join(" ");
                 }
                 if (!body && Array.isArray(sec.topics)) {
-                  body = sec.topics.map((p: any) => `• ${p}`).join("\n");
+                  body = sec.topics.map((p: any) => `${p}`).join(" ");
                 }
-                if (!body && typeof sec === "object") {
-                  // fallback: concatenar valores curtos
-                  body = Object.entries(sec)
-                    .filter(([k, v]) =>
-                      ["name", "titulo", "time_approx", "tempo"].includes(k)
-                        ? false
-                        : typeof v === "string" && v.length < 600
-                    )
-                    .map(([, v]) => v)
-                    .join("\n");
-                }
-                parts.push(body.trim());
+                if (body) parts.push(body.trim());
               });
             }
-            return parts.join("\n").trim();
+            return this.cleanMarkdownForAudio(parts.join(" ").trim());
           } catch (e) {
-            return JSON.stringify(script);
+            return this.cleanMarkdownForAudio(rawText);
           }
         }
-        return rawText;
+        return this.cleanMarkdownForAudio(rawText);
       }
 
-      return rawText;
+      // Se não for JSON, limpar markdown diretamente
+      return this.cleanMarkdownForAudio(rawText);
     } catch {
-      // Se não for JSON válido, retornar como está
-      return rawText;
+      // Se não for JSON válido, limpar markdown e retornar
+      return this.cleanMarkdownForAudio(rawText);
     }
+  }
+
+  /**
+   * Remove markdown e formatação para deixar texto limpo para áudio
+   */
+  private cleanMarkdownForAudio(text: string): string {
+    let cleaned = text;
+
+    // Remove marcações de markdown
+    cleaned = cleaned.replace(/^#{1,6}\s+/gm, ""); // Remove ## ### etc
+    cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, "$1"); // Remove **bold** e *italic*
+    cleaned = cleaned.replace(/`([^`]+)`/g, "$1"); // Remove `code`
+    cleaned = cleaned.replace(/\[([^\]]+)\]/g, "$1"); // Remove [texto] mantendo só o texto
+    cleaned = cleaned.replace(/^\s*[-*+]\s+/gm, ""); // Remove bullets - * +
+    cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, ""); // Remove numeração 1. 2. etc
+
+    // Remove formatações especiais
+    cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, "$1"); // **texto**
+    cleaned = cleaned.replace(/\*([^*]+)\*/g, "$1"); // *texto*
+    cleaned = cleaned.replace(/_([^_]+)_/g, "$1"); // _texto_
+
+    // Remove quebras de linha extras e espaços
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n"); // Max 2 quebras seguidas
+    cleaned = cleaned.replace(/\s{2,}/g, " "); // Max 1 espaço seguido
+
+    // Remove caracteres especiais problemáticos para TTS
+    cleaned = cleaned.replace(/[#*`_~\[\]]/g, ""); // Remove #, *, `, _, ~, [, ]
+    cleaned = cleaned.replace(/^\s*[-=]{3,}\s*$/gm, ""); // Remove linhas separadoras
+
+    // Limpa espaços no início e fim de linhas
+    cleaned = cleaned
+      .split("\n")
+      .map((line) => line.trim())
+      .join("\n");
+
+    // Remove linhas vazias extras
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, "\n\n");
+
+    return cleaned.trim();
   }
 
   /**

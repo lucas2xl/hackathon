@@ -56,8 +56,8 @@ export function Header() {
             </div>
           </div>
 
-          {/* <div className="flex items-center space-x-3">
-            <Button
+          <div className="flex items-center space-x-3">
+            {/* <Button
               onClick={handleScrape}
               disabled={isScrapingLoading}
               className="flex items-center space-x-2"
@@ -80,8 +80,8 @@ export function Header() {
                 className={`h-4 w-4 ${isPodcastLoading ? "animate-pulse" : ""}`}
               />
               <span>{isPodcastLoading ? "Gerando..." : "Gerar Podcast"}</span>
-            </Button>
-          </div> */}
+            </Button> */}
+          </div>
         </div>
       </div>
     </header>
